@@ -528,9 +528,9 @@ function toggleWt(){A.showWeightInput=!A.showWeightInput;A.weightDraft=String(A.
 
 function handlePhoto(inp){
   const f=inp.files?.[0];if(!f)return;
-  const r=new FileReader();r.onload=ev=>{const d=ev.target.result;A.photo={base64:d.split(',')[1],mediaType:f.type,preview:d};render();};r.readAsDataURL(f);
+  const r=new FileReader();r.onload=ev=>{const d=ev.target.result;A.photo={base64:d.split(',')[1],mediaType:f.type,preview:d};render();updateLogBtn();};r.readAsDataURL(f);
 }
-function clearPhoto(){A.photo=null;render();}
+function clearPhoto(){A.photo=null;render();updateLogBtn();}
 
 async function logMeal(){
   if((!A.mealText.trim()&&!A.photo)||A.aiLoading)return;
