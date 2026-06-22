@@ -28,7 +28,7 @@ const WE={'Lagree / Pilates':'🧘','Gym — weights':'🏋️','Cardio':'⚡','
 const CARD=()=>`background:${T.card};border-radius:18px;padding:16px 18px;border:1px solid ${T.border};margin-bottom:10px`;
 const IS=()=>`width:100%;background:${T.card2};border:1px solid ${T.border};border-radius:12px;padding:12px 14px;font-size:14px;color:${T.text};outline:none;box-sizing:border-box;margin-bottom:14px`;
 
-const today=()=>new Date().toISOString().split('T')[0];
+const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
 const fmtTime=()=>new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
 const dayS=d=>new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short'});
 const dayN=d=>new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
@@ -73,6 +73,39 @@ const A={
   burnDraft:'',goalRec:null,goalRecLoading:false,fitGoal:'recomp',bodyWeight:''
 };
 
+
+function checkStorageHealth(){
+  // Test if localStorage actually works and persists
+  try {
+    const testKey='_healthcheck';
+    localStorage.setItem(testKey,'ok');
+    const val=localStorage.getItem(testKey);
+    localStorage.removeItem(testKey);
+    if(val!=='ok') return 'fail';
+    return 'ok';
+  } catch(e) {
+    return 'blocked';
+  }
+}
+
+function getStorageWarning(){
+  const health=checkStorageHealth();
+  const standalone=window.navigator.standalone;
+  if(health==='blocked'||health==='fail'){
+    return '<div style="background:#FF453A20;border:1px solid #FF453A50;border-radius:12px;padding:12px 14px;margin:0 18px 10px;font-size:12px;color:#FF453A;line-height:1.6">⚠️ Storage is blocked — you may be in Private Browsing. Data will not save. Open in regular Safari.</div>';
+  }
+  if(standalone===false){
+    return '<div style="background:#FFD60A20;border:1px solid #FFD60A50;border-radius:12px;padding:12px 14px;margin:0 18px 10px;font-size:12px;color:#FFD60A;line-height:1.6">⚠️ Not running as app — data may not save. Delete this icon, reopen in Safari, then Share → Add to Home Screen again.</div>';
+  }
+  return '';
+}
+
+function flashSaved(){
+  let el=document.getElementById('save-flash');
+  if(!el){el=document.createElement('div');el.id='save-flash';el.style.cssText=`position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:${T.green};color:#000;font-size:12px;font-weight:600;padding:8px 18px;border-radius:20px;z-index:200;transition:opacity 0.3s;box-shadow:0 0 16px ${T.green}60`;document.body.appendChild(el);}
+  el.textContent='✓ Saved';el.style.opacity='1';
+  setTimeout(()=>el.style.opacity='0',1500);
+}
 function loadData(){
   const td=today();
   const m=ls.get(`meals:${td}`);if(m)A.meals=m;
@@ -506,7 +539,7 @@ function render(){
   let modal='';
   if(A.modal==='goals')modal=renderGoalsModal();
   else if(A.modal==='burn')modal=renderBurnModal();
-  root.innerHTML=`<div class="app" style="font-family:-apple-system,system-ui,sans-serif;background:${T.bg};min-height:100vh;color:${T.text}">${renderHeader()}${renderNav()}${view}${modal}</div>`;
+  root.innerHTML=`<div class="app" style="font-family:-apple-system,system-ui,sans-serif;background:${T.bg};min-height:100vh;color:${T.text}">${renderHeader()}${renderNav()}${getStorageWarning()}${view}${modal}</div>`;
   if(A.view==='trends')setTimeout(initCharts,50);
 }
 
@@ -547,7 +580,7 @@ async function logMeal(){
     const text=await callGemini(`Estimate nutrition${desc?`. Context: ${desc}`:''}.Return ONLY valid JSON: {"name":"short name","calories":0,"protein":0,"carbs":0,"fat":0} All integers. Realistic portions.`,p||null);
     const macros=JSON.parse(text.replace(/```json|```/g,'').trim());
     A.meals.push({id:Date.now(),time:fmtTime(),description:desc||'photo',photoPreview:p?.preview,...macros});
-    ls.set(`meals:${today()}`,A.meals);
+    ls.set(`meals:${today()}`,A.meals);flashSaved();
   }catch(e){A.meals.push({id:Date.now(),time:fmtTime(),description:desc||'photo',name:desc||'photo',calories:0,protein:0,carbs:0,fat:0,error:true,errorMsg:String(e?.message||e||'').slice(0,100)});ls.set(`meals:${today()}`,A.meals);}
   A.aiLoading=false;render();
 }
@@ -564,8 +597,8 @@ function delWorkout(i){A.workouts.splice(i,1);ls.set(`workouts:${today()}`,A.wor
 function addWater(oz){A.water+=oz;ls.setRaw(`water:${today()}`,String(A.water));render();}
 function removeWater(){A.water=Math.max(0,A.water-8);ls.setRaw(`water:${today()}`,String(A.water));render();}
 function logWeight(){const val=Number(A.weightDraft||document.getElementById('wt-inp')?.value);if(!val)return;const td=today();A.weights=[...A.weights.filter(w=>w.date!==td),{date:td,weight:val}].sort((a,b)=>a.date.localeCompare(b.date));ls.setRaw(`weight:${td}`,String(val));A.showWeightInput=false;A.weightDraft='';render();}
-function saveGoals(){A.goals={...A.goalDraft};ls.set('goals',A.goals);A.modal=null;render();}
-function saveBurn(){const val=Number(A.burnDraft||document.getElementById('burn-inp')?.value);if(!val)return;A.burn=val;ls.setRaw(`burn:${today()}`,String(val));A.modal=null;A.burnDraft='';render();}
+function saveGoals(){A.goals={...A.goalDraft};ls.set('goals',A.goals);flashSaved();A.modal=null;render();}
+function saveBurn(){const val=Number(A.burnDraft||document.getElementById('burn-inp')?.value);if(!val)return;A.burn=val;ls.setRaw(`burn:${today()}`,String(val));flashSaved();A.modal=null;A.burnDraft='';render();}
 
 async function genInsights(){
   A.insightsLoading=true;render();
