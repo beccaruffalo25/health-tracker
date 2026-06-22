@@ -42,11 +42,11 @@ async function callGemini(prompt,img=null){
   const parts=img?[{inline_data:{mime_type:img.mediaType,data:img.base64}},{text:prompt}]:[{text:prompt}];
   const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${key}`,{
     method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({contents:[{parts}],generationConfig:{temperature:0.1}})
+    body:JSON.stringify({contents:[{parts}],generationConfig:{temperature:0.1},thinkingConfig:{thinkingBudget:0}})
   });
   const data=await res.json();
   if(data.error)throw new Error(data.error.message);
-  return data.candidates[0].content.parts[0].text;
+  const rp=data.candidates[0].content.parts;const tp=rp.find(p=>!p.thought)||rp[rp.length-1];return tp.text;
 }
 
 const A={
@@ -286,7 +286,7 @@ function renderToday(){
             <div style="flex:1;min-width:0">
               <div style="font-size:14px;font-weight:500;color:${T.text};margin-bottom:2px">${esc(m.name||m.description)}</div>
               <div style="font-size:11px;color:${T.textTer};margin-bottom:${m.error?0:7}px">${m.time}</div>
-              ${!m.error?`<div style="display:flex;gap:7px;flex-wrap:wrap"><span style="font-size:11px;color:${T.green};font-weight:600;background:${T.green}18;padding:2px 7px;border-radius:6px">${m.calories} kcal</span><span style="font-size:11px;color:${T.blue};background:${T.blue}18;padding:2px 7px;border-radius:6px">P ${m.protein}g</span><span style="font-size:11px;color:${T.gold};background:${T.gold}18;padding:2px 7px;border-radius:6px">C ${m.carbs}g</span></div>`:`<div style="font-size:12px;color:${T.warn}">Estimation failed — tap ✏ to enter manually</div>`}
+              ${!m.error?`<div style="display:flex;gap:7px;flex-wrap:wrap"><span style="font-size:11px;color:${T.green};font-weight:600;background:${T.green}18;padding:2px 7px;border-radius:6px">${m.calories} kcal</span><span style="font-size:11px;color:${T.blue};background:${T.blue}18;padding:2px 7px;border-radius:6px">P ${m.protein}g</span><span style="font-size:11px;color:${T.gold};background:${T.gold}18;padding:2px 7px;border-radius:6px">C ${m.carbs}g</span></div>`:`<div style="font-size:12px;color:${T.warn}">Failed: ${esc(m.errorMsg||'tap ✏ to enter manually')}</div>`}
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:2px;flex-shrink:0;margin-left:8px">
@@ -528,7 +528,7 @@ async function logMeal(){
     const macros=JSON.parse(text.replace(/```json|```/g,'').trim());
     A.meals.push({id:Date.now(),time:fmtTime(),description:desc||'photo',photoPreview:p?.preview,...macros});
     ls.set(`meals:${today()}`,A.meals);
-  }catch{A.meals.push({id:Date.now(),time:fmtTime(),description:desc||'photo',name:desc||'photo',calories:0,protein:0,carbs:0,fat:0,error:true});ls.set(`meals:${today()}`,A.meals);}
+  }catch(e){A.meals.push({id:Date.now(),time:fmtTime(),description:desc||'photo',name:desc||'photo',calories:0,protein:0,carbs:0,fat:0,error:true,errorMsg:String(e?.message||e||'').slice(0,100)});ls.set(`meals:${today()}`,A.meals);}
   A.aiLoading=false;render();
 }
 
